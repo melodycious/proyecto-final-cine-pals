@@ -5,26 +5,22 @@ const getState = ({ getStore, getActions, setStore }) => {
   return {
     store: {
       userInfo:{},
-      series: [], 
-      serie: [],
       nombreUsuario: {},
+      name: "",
       userId: "",
       token: "",
-      latestMovies: [],
       lista: {},
       listas: [],
+      series: [], 
+      serie: [],
+      latestMovies: [],
       allInfo: [],
       movie: [],
-      pelis: [],
-      name: "",
-
-
+      pelis: []
     },
     actions: {
-
-     
       
-      /* ESTE ES EL REGISTRO */
+      /* REGISTRO */
       getCrearUsuario: async (email, password) => {
         const myHeaders = new Headers();
         myHeaders.append(
@@ -54,7 +50,7 @@ const getState = ({ getStore, getActions, setStore }) => {
           .catch((error) => console.log("error", error));
       },
 
-      /* ESTE ES EL LOGIN */
+      /* LOGIN */
 
       getLogin: async (email, password) => {
         const myHeaders = new Headers();
@@ -85,9 +81,9 @@ const getState = ({ getStore, getActions, setStore }) => {
             getActions().getTraerUsuario(result.userId);
         })
         .catch((error) => console.log("error", error));
-    },
+      },
 
-      /* ESTE ES EL LOGOUT */
+      /* LOGOUT */
 
       getLogout: async (navigate, token) => {
         
@@ -103,24 +99,202 @@ const getState = ({ getStore, getActions, setStore }) => {
         setStore({...store, token, userId})
       },
 
+      /* Traer info usuario, sus listas, editar y eliminar */ 
 
-      /* ESTE ES EL GET DE LAS PELICULAS */
-
-      getTraerPeliculas : async (list_id) => {
-        const options = {
-          method: 'GET',
-          headers: {
-            accept: 'application/json',
-           
-          }
-        };
-        
-        fetch(`${process.env.BACKEND_URL}/api/lists/${list_id}`, options)
-          .then(response => response.json())
-          .then((data) => setStore ({pelis: data.movies}))
-          .catch(err => console.error(err));
+      getTraerUsuario: async () => {
+        const store = getStore();
+        try {
+            const response = await fetch(`${process.env.BACKEND_URL}/api/users/${localStorage.getItem('userId')}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${store.token}`
+                }
+            });
+    
+            if (response.status !== 200) {
+                throw new Error("Error al obtener el usuario");
+            }
+    
+            const data = await response.json();
+            setStore({...store, userInfo: data });
+        } catch (error) {
+            console.error("Error al obtener el usuario", error);
+        }
       },
-      
+
+      getTraerTodasLasListas: async () => {
+        const store = getStore();
+        try {
+            const response = await fetch(`${process.env.BACKEND_URL}/api/lists/all/${localStorage.getItem('userId')}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${store.token}`
+              },
+            });
+            if (response.status !== 200) {
+                throw new Error("Error al obtener las listas");
+            }
+            const data = await response.json();
+            setStore({ listas: data });
+
+        } catch (error) {
+            console.error("Error al obtener las listas", error);
+        }   
+      },
+
+      getEditUser: async (editedProfile) => {
+        const store = getStore();
+        try {
+            const response = await fetch(`${process.env.BACKEND_URL}/api/users/${store.userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${store.token}`
+                },
+                body: JSON.stringify(editedProfile)
+            });
+            if (response.status !== 200) {
+                throw new Error("Error al editar usuario");
+            }
+            const data = await response.json();
+            setStore({ userInfo: data });
+            getActions().getTraerUsuario();
+          
+        } catch (error) {
+            console.error("Error al editar usuario", error);
+        }
+      },
+
+      getDeleteUser: async (navigate) => {
+        const store = getStore();
+        try {
+            const response = await fetch(`${process.env.BACKEND_URL}/api/users/${store.userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${store.token}`
+                }
+            });
+    
+            if (response.status !== 200) {
+                throw new Error("Error al eliminar usuario");
+            }
+    
+            const data = await response.json(data);
+            setStore({ token: "", userId: ""});
+            navigate(`/`);
+        } catch (error) {
+            console.error("Error al eliminar el usuario", error);
+        }
+      },
+
+    /* Crear, añadir participantes, editar y eliminar lista*/
+
+      getCrearLista: async (name) => {
+        const store = getStore();
+        const token = store.token;
+    
+        const myHeaders = new Headers();
+        myHeaders.append("Content-Type", "application/json");
+        myHeaders.append("Authorization", `Bearer ${token}`);
+    
+        const raw = JSON.stringify({
+            name: name
+        });
+    
+        const requestOptions = {
+            method: "POST",
+            headers: myHeaders,
+            body: raw,
+            redirect: "follow",
+        };
+    
+        fetch(`${process.env.BACKEND_URL}/api/lists`, requestOptions)
+            .then((response) => response.json())
+            .then((result) => {
+              setStore({ listas: [...store.listas, result] });
+              getActions().getTraerTodasLasListas();
+            })
+            .catch((error) => console.error(error));
+      },
+
+      getAñadirParticipante: async (id, email) => {
+        const store = getStore();
+        const token = store.token;
+        const myHeaders = new Headers();
+        myHeaders.append("Content-Type", "application/json");
+        myHeaders.append("Authorization", `Bearer ${token}`);
+        const raw = JSON.stringify({
+            email: email
+        });
+        const requestOptions = {
+            method: "PUT",
+            headers: myHeaders,
+            body: raw,
+            redirect: "follow",
+        };
+        fetch(`${process.env.BACKEND_URL}/api/lists/${id}/add_user`, requestOptions)
+            .then((response) => response.json())
+            .then((result) => {
+              
+                getActions().getTraerTodasLasListas();
+            })
+            .catch((error) => console.error(error));
+      },
+        
+      getEditarLista: async (id, name) => {
+        const store = getStore();
+        const token = store.token;
+        
+        const myHeaders = new Headers();
+        myHeaders.append("Content-Type", "application/json");
+        myHeaders.append("Authorization", `Bearer ${token}`);
+        const raw = JSON.stringify({
+            name: name
+        });
+        const requestOptions = {
+            method: "PUT",
+            headers: myHeaders,
+            body: raw,
+            redirect: "follow",
+        };
+        fetch(`${process.env.BACKEND_URL}/api/lists/${id}`, requestOptions)
+            .then((response) => response.json())
+            .then((result) => {
+                setStore({
+                    listas: store.listas.map(lista => lista.id === id ? result.list : lista)
+                });
+                getActions().getTraerTodasLasListas();
+            })
+            .catch((error) => console.error(error));
+        },
+
+      getEliminarLista: async (id) => {
+        const store = getStore();
+        const token = store.token;
+        try {
+            const response = await fetch(`${process.env.BACKEND_URL}/api/lists/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const updatedLists = store.listas.filter(lista => lista.id !== id);
+            setStore({ listas: updatedLists });
+            getActions().getTraerTodasLasListas();
+            const data = await response.json();
+          
+        } catch (error) {
+            console.error('Error deleting list:', error);
+        }
+      },
+
       /* ESTE TE TRAER EL NOMBRE DE LA LISTA */
 
       getTraerTitulo : async (id) => {
@@ -144,7 +318,24 @@ const getState = ({ getStore, getActions, setStore }) => {
 
       },
 
-      /* TRAE LAS SERIES*/
+      /* ESTE ES EL GET DE LAS PELICULAS en las listas */
+
+      getTraerPeliculas : async (list_id) => {
+        const options = {
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+           
+          }
+        };
+        
+        fetch(`${process.env.BACKEND_URL}/api/lists/${list_id}`, options)
+          .then(response => response.json())
+          .then((data) => setStore ({pelis: data.movies}))
+          .catch(err => console.error(err));
+      },
+      
+      /* TRAE LAS SERIES en las listas*/
 
       getTraerSeries : async (id) => {
         const options = {
@@ -162,14 +353,10 @@ const getState = ({ getStore, getActions, setStore }) => {
 
       },
 
-     
-
-      /* eliminar pelicula o serie */
-
+      /* eliminar pelicula o serie de la lista */
 
       getEliminarPelicula: async (list_id, id) => {
         
-      
         const requestOptions = {
           method: "DELETE",
           headers: {
@@ -218,10 +405,7 @@ const getState = ({ getStore, getActions, setStore }) => {
           .catch((error) => console.log("error", error));
       },
       
-
-       
-
-
+      /* Trae películas recomendadas en el landing de la API */
       getMoviesLanding: async () => {
         const options = {
           method: 'GET',
@@ -240,9 +424,7 @@ const getState = ({ getStore, getActions, setStore }) => {
         }
       },
 
-    
     // Busca pelis y series en la BBDD de la api
-
     
       getAllMoviesSeries: async (query) => {
 
@@ -265,7 +447,7 @@ const getState = ({ getStore, getActions, setStore }) => {
       },
 
 
-      // Page Movie /  Series //
+      // Vista detallada Peliculas y series GET y Añade a las listas //
 
       getMovie: async (id) => { 
         const options = {
@@ -285,272 +467,77 @@ const getState = ({ getStore, getActions, setStore }) => {
           })
           .catch(err => console.error(err));
   
-    },
-    getSerie: async (id) => { 
-      const options = {
-          method: 'GET',
-          headers: {
-              accept: 'application/json',
-              Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI0MTUwZDQyNjQ2NGQxOGY0ZGRjMGM3ZWEwZjFjNTU2MyIsInN1YiI6IjY2NDI0ZTQ3M2MzMGM1ZjRhYzNhMWQ3ZiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.1qYEcWtzCfR7JEiJLg5B4Nn9WdrFrwydfN68kLVNf-o'
-          }
-      };
-
-      fetch(`https://api.themoviedb.org/3/tv/${id}?language=es-ES`, options)
-        .then(response => response.json())
-        .then((response) => {
-          setStore({ serie: response });
-          console.log(response);
-        })
-        .catch(err => console.error(err));
-
-  },
-
-
-    addMovieToList: (list_id, movieTitle, overview, poster_path, release_date, tagline, runtime, api_id) => {
-      const store = getStore();
-      fetch(`${process.env.BACKEND_URL}/api/lists/${list_id}/add`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${store.token}`
-          },
-        body: JSON.stringify({movie:
-          { title: movieTitle,
-             overview: overview, 
-             poster_path: poster_path,
-              release_date: release_date, 
-              tagline: tagline,
-              runtime: runtime,
-              api_id: api_id}})
-         })
-          .then(response => response.json())
-          .then((response) => {
-            getActions().getTraerTodasLasListas();
-            console.log(response);
-          })
-          .catch(err => console.error(err));
-    },
-
-    addSerieToList: (list_id, name, overview, poster_path, first_air_date, api_id) => {
-      const store = getStore();
-      fetch(`${process.env.BACKEND_URL}/api/lists/${list_id}/add`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${store.token}`
-          },
-        body: JSON.stringify({serie:
-          { name: name,
-             overview: overview,
-              poster_path: poster_path,
-               first_air_date: first_air_date,
-                api_id: api_id}})
-         })
-          .then(response => response.json())
-          .then((response) => {
-            getActions().getTraerTodasLasListas();
-            console.log(response);
-          })
-          .catch(err => console.error(err));
-    },
-
-getTraerUsuario: async () => {
-        const store = getStore();
-        try {
-            const response = await fetch(`${process.env.BACKEND_URL}/api/users/${localStorage.getItem('userId')}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${store.token}`
-                }
-            });
-    
-            if (response.status !== 200) {
-                throw new Error("Error al obtener el usuario");
+      },
+      getSerie: async (id) => { 
+        const options = {
+            method: 'GET',
+            headers: {
+                accept: 'application/json',
+                Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI0MTUwZDQyNjQ2NGQxOGY0ZGRjMGM3ZWEwZjFjNTU2MyIsInN1YiI6IjY2NDI0ZTQ3M2MzMGM1ZjRhYzNhMWQ3ZiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.1qYEcWtzCfR7JEiJLg5B4Nn9WdrFrwydfN68kLVNf-o'
             }
-    
-            const data = await response.json();
-            setStore({...store, userInfo: data });
-        } catch (error) {
-            console.error("Error al obtener el usuario", error);
-        }
-    },
+        };
 
-    getTraerTodasLasListas: async () => {
-      const store = getStore();
-      try {
-          const response = await fetch(`${process.env.BACKEND_URL}/api/lists/all/${localStorage.getItem('userId')}`, {
-              method: 'GET',
+        fetch(`https://api.themoviedb.org/3/tv/${id}?language=es-ES`, options)
+          .then(response => response.json())
+          .then((response) => {
+            setStore({ serie: response });
+            console.log(response);
+          })
+          .catch(err => console.error(err));
+
+      },
+
+      addMovieToList: (list_id, movieTitle, overview, poster_path, release_date, tagline, runtime, api_id) => {
+        const store = getStore();
+        fetch(`${process.env.BACKEND_URL}/api/lists/${list_id}/add`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${store.token}`
+            },
+          body: JSON.stringify({movie:
+            { title: movieTitle,
+              overview: overview, 
+              poster_path: poster_path,
+                release_date: release_date, 
+                tagline: tagline,
+                runtime: runtime,
+                api_id: api_id}})
+          })
+            .then(response => response.json())
+            .then((response) => {
+              getActions().getTraerTodasLasListas();
+              console.log(response);
+            })
+            .catch(err => console.error(err));
+        },
+
+        addSerieToList: (list_id, name, overview, poster_path, first_air_date, api_id) => {
+          const store = getStore();
+          fetch(`${process.env.BACKEND_URL}/api/lists/${list_id}/add`,
+            {
+              method: 'PATCH',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${store.token}`
-            },
-          });
-          if (response.status !== 200) {
-              throw new Error("Error al obtener las listas");
-          }
-          const data = await response.json();
-          setStore({ listas: data });
-
-      } catch (error) {
-          console.error("Error al obtener las listas", error);
-      }   
-  },
-
-  
-
-    getEditUser: async (editedProfile) => {
-      const store = getStore();
-      try {
-          const response = await fetch(`${process.env.BACKEND_URL}/api/users/${store.userId}`, {
-              method: 'PUT',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${store.token}`
               },
-              body: JSON.stringify(editedProfile)
-          });
-          if (response.status !== 200) {
-              throw new Error("Error al editar usuario");
-          }
-          const data = await response.json();
-          setStore({ userInfo: data });
-          getActions().getTraerUsuario();
+            body: JSON.stringify({serie:
+              { name: name,
+                overview: overview,
+                  poster_path: poster_path,
+                  first_air_date: first_air_date,
+                    api_id: api_id}})
+            })
+              .then(response => response.json())
+              .then((response) => {
+                getActions().getTraerTodasLasListas();
+                console.log(response);
+              })
+              .catch(err => console.error(err));
+        },
+
         
-      } catch (error) {
-          console.error("Error al editar usuario", error);
-      }
-  },
-
-      getDeleteUser: async (navigate) => {
-        const store = getStore();
-        try {
-            const response = await fetch(`${process.env.BACKEND_URL}/api/users/${store.userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${store.token}`
-                }
-            });
-    
-            if (response.status !== 200) {
-                throw new Error("Error al eliminar usuario");
-            }
-    
-            const data = await response.json(data);
-            setStore({ token: "", userId: ""});
-            navigate(`/`);
-        } catch (error) {
-            console.error("Error al eliminar el usuario", error);
-        }
-    },
-
-    getCrearLista: async (name) => {
-      const store = getStore();
-      const token = store.token;
-  
-      const myHeaders = new Headers();
-      myHeaders.append("Content-Type", "application/json");
-      myHeaders.append("Authorization", `Bearer ${token}`);
-  
-      const raw = JSON.stringify({
-          name: name
-      });
-  
-      const requestOptions = {
-          method: "POST",
-          headers: myHeaders,
-          body: raw,
-          redirect: "follow",
-      };
-  
-      fetch(`${process.env.BACKEND_URL}/api/lists`, requestOptions)
-          .then((response) => response.json())
-          .then((result) => {
-            setStore({ listas: [...store.listas, result] });
-            getActions().getTraerTodasLasListas();
-          })
-          .catch((error) => console.error(error));
-  },
-
-  getAñadirParticipante: async (id, email) => {
-    const store = getStore();
-    const token = store.token;
-    const myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-    myHeaders.append("Authorization", `Bearer ${token}`);
-    const raw = JSON.stringify({
-        email: email
-    });
-    const requestOptions = {
-        method: "PUT",
-        headers: myHeaders,
-        body: raw,
-        redirect: "follow",
-    };
-    fetch(`${process.env.BACKEND_URL}/api/lists/${id}/add_user`, requestOptions)
-        .then((response) => response.json())
-        .then((result) => {
-           
-            getActions().getTraerTodasLasListas();
-        })
-        .catch((error) => console.error(error));
-},
-        
-  getEditarLista: async (id, name) => {
-    const store = getStore();
-    const token = store.token;
-    
-    const myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
-    myHeaders.append("Authorization", `Bearer ${token}`);
-    const raw = JSON.stringify({
-        name: name
-    });
-    const requestOptions = {
-        method: "PUT",
-        headers: myHeaders,
-        body: raw,
-        redirect: "follow",
-    };
-    fetch(`${process.env.BACKEND_URL}/api/lists/${id}`, requestOptions)
-        .then((response) => response.json())
-        .then((result) => {
-            setStore({
-                listas: store.listas.map(lista => lista.id === id ? result.list : lista)
-            });
-            getActions().getTraerTodasLasListas();
-        })
-        .catch((error) => console.error(error));
-},
-
-getEliminarLista: async (id) => {
-  const store = getStore();
-  const token = store.token;
-  try {
-      const response = await fetch(`${process.env.BACKEND_URL}/api/lists/${id}`, {
-          method: 'DELETE',
-          headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-          }
-      });
-      if (!response.ok) {
-          throw new Error('Network response was not ok');
-      }
-      const updatedLists = store.listas.filter(lista => lista.id !== id);
-      setStore({ listas: updatedLists });
-      getActions().getTraerTodasLasListas();
-      const data = await response.json();
-     
-  } catch (error) {
-      console.error('Error deleting list:', error);
-  }
-},
-
-
       // Use getActions to call a function within a fuction
       exampleFunction: () => {
         getActions().changeColor(0, "green");
@@ -582,6 +569,7 @@ getEliminarLista: async (id) => {
         //reset the global store
         setStore({ demo: demo });
       },
+
     },
   };
 };

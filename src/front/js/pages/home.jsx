@@ -22,12 +22,12 @@ export const Home = () => {
     <div className="container text-center pooter">
     <div className="row landingback">
       <div className="col mt-4 mb-4">
-        <h1>Comparte tus pelis y series</h1>
+        <h1 className="bigTitle">Comparte tus pelis y series</h1>
         <h5>
           Crea tus listas de películas y series favoritas e invita a tus amigos para que puedan compartir contigo las suyas.
         </h5>
         <Link to="/login">
-        <button className="btn btn-primary mt-4">Unirme</button>
+        <button className="botonRegistro">Unirme</button>
         </Link>
       </div>
       <div className="col mt-4 mb-4">
